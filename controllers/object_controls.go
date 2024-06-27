@@ -1238,6 +1238,23 @@ func TransformToolkit(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicySpec, n 
 
 	// configure runtime
 	runtime := n.runtime.String()
+	err = TransformDaemonsetForRuntime(obj, config, runtime)
+	if err != nil {
+		return fmt.Errorf("error transforming toolkit daemonset : %v", err)
+	}
+
+	// Update CRI-O hooks path to use default path for non OCP cases
+	if n.openshift == "" && n.runtime == gpuv1.CRIO {
+		for index, volume := range obj.Spec.Template.Spec.Volumes {
+			if volume.Name == "crio-hooks" {
+				obj.Spec.Template.Spec.Volumes[index].HostPath.Path = "/usr/share/containers/oci/hooks.d"
+			}
+		}
+	}
+	return nil
+}
+
+func TransformDaemonsetForRuntime(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicySpec, runtime string) error {
 	setContainerEnv(&(obj.Spec.Template.Spec.Containers[0]), "RUNTIME", runtime)
 
 	if runtime == gpuv1.Containerd.String() {
@@ -1293,15 +1310,6 @@ func TransformToolkit(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicySpec, n 
 
 		socketVol := corev1.Volume{Name: volMountSocketName, VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: path.Dir(runtimeSocketFile)}}}
 		obj.Spec.Template.Spec.Volumes = append(obj.Spec.Template.Spec.Volumes, socketVol)
-	}
-
-	// Update CRI-O hooks path to use default path for non OCP cases
-	if n.openshift == "" && n.runtime == gpuv1.CRIO {
-		for index, volume := range obj.Spec.Template.Spec.Volumes {
-			if volume.Name == "crio-hooks" {
-				obj.Spec.Template.Spec.Volumes[index].HostPath.Path = "/usr/share/containers/oci/hooks.d"
-			}
-		}
 	}
 	return nil
 }
@@ -1824,34 +1832,10 @@ func TransformKataManager(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicySpec
 
 	// setup mounts for runtime config file
 	runtime := n.runtime.String()
-	runtimeConfigFile, err := getRuntimeConfigFile(&(obj.Spec.Template.Spec.Containers[0]), runtime)
+	err = TransformDaemonsetForRuntime(obj, config, runtime)
 	if err != nil {
-		return fmt.Errorf("error getting path to runtime config file: %v", err)
+		return fmt.Errorf("error transforming kata-manager daemonset : %v", err)
 	}
-	sourceConfigFileName := path.Base(runtimeConfigFile)
-	setContainerEnv(&(obj.Spec.Template.Spec.Containers[0]), "CONTAINERD_CONFIG", filepath.Join(DefaultRuntimeConfigTargetDir, sourceConfigFileName))
-
-	volMountConfigName := fmt.Sprintf("%s-config", runtime)
-	volMountConfig := corev1.VolumeMount{Name: volMountConfigName, MountPath: DefaultRuntimeConfigTargetDir}
-	obj.Spec.Template.Spec.Containers[0].VolumeMounts = append(obj.Spec.Template.Spec.Containers[0].VolumeMounts, volMountConfig)
-
-	configVol := corev1.Volume{Name: volMountConfigName, VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: path.Dir(runtimeConfigFile), Type: newHostPathType(corev1.HostPathDirectoryOrCreate)}}}
-	obj.Spec.Template.Spec.Volumes = append(obj.Spec.Template.Spec.Volumes, configVol)
-
-	// setup mounts for runtime socket file
-	runtimeSocketFile, err := getRuntimeSocketFile(&(obj.Spec.Template.Spec.Containers[0]), runtime)
-	if err != nil {
-		return fmt.Errorf("error getting path to runtime socket: %v", err)
-	}
-	sourceSocketFileName := path.Base(runtimeSocketFile)
-	setContainerEnv(&(obj.Spec.Template.Spec.Containers[0]), "CONTAINERD_SOCKET", filepath.Join(DefaultRuntimeSocketTargetDir, sourceSocketFileName))
-
-	volMountSocketName := fmt.Sprintf("%s-socket", runtime)
-	volMountSocket := corev1.VolumeMount{Name: volMountSocketName, MountPath: DefaultRuntimeSocketTargetDir}
-	obj.Spec.Template.Spec.Containers[0].VolumeMounts = append(obj.Spec.Template.Spec.Containers[0].VolumeMounts, volMountSocket)
-
-	socketVol := corev1.Volume{Name: volMountSocketName, VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: path.Dir(runtimeSocketFile)}}}
-	obj.Spec.Template.Spec.Volumes = append(obj.Spec.Template.Spec.Volumes, socketVol)
 
 	// Compute hash of kata manager config and add an annotation with the value.
 	// If the kata config changes, a new revision of the daemonset will be
