@@ -1096,9 +1096,9 @@ func (n ClusterPolicyController) isStateEnabled(stateName string) bool {
 	case "state-node-status-exporter":
 		return clusterPolicySpec.NodeStatusExporter.IsEnabled()
 	case "state-sandbox-device-plugin":
-		return n.sandboxEnabled && clusterPolicySpec.SandboxDevicePlugin.IsEnabled() && clusterPolicySpec.SandboxWorkloads.Mode == "kubevirt"
+		return n.sandboxEnabled && clusterPolicySpec.SandboxDevicePlugin.IsEnabled() && clusterPolicySpec.SandboxWorkloads.Mode == string(gpuv1.KubeVirt)
 	case "state-kata-device-plugin":
-		return n.sandboxEnabled && clusterPolicySpec.KataSandboxDevicePlugin.IsEnabled() && clusterPolicySpec.SandboxWorkloads.Mode == "kata"
+		return n.sandboxEnabled && clusterPolicySpec.KataSandboxDevicePlugin.IsEnabled() && clusterPolicySpec.SandboxWorkloads.Mode == string(gpuv1.Kata)
 	case "state-kata-manager":
 		return n.sandboxEnabled && clusterPolicySpec.KataManager.IsEnabled()
 	case "state-vfio-manager":
@@ -1108,7 +1108,7 @@ func (n ClusterPolicyController) isStateEnabled(stateName string) bool {
 	case "state-vgpu-manager":
 		return n.sandboxEnabled && clusterPolicySpec.VGPUManager.IsEnabled()
 	case "state-cc-manager":
-		return n.sandboxEnabled && clusterPolicySpec.CCManager.IsEnabled()
+		return n.sandboxEnabled && clusterPolicySpec.CCManager.IsEnabled() && clusterPolicySpec.SandboxWorkloads.Mode == string(gpuv1.Kata)
 	case "state-sandbox-validation":
 		return n.sandboxEnabled
 	case "state-operator-validation":
