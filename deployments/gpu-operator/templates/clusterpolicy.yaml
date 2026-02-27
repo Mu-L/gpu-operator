@@ -300,7 +300,9 @@ spec:
       {{- end }}
   kataManager:
     enabled: {{ .Values.kataManager.enabled }}
+    {{- if .Values.kataManager.config }}
     config: {{ toYaml .Values.kataManager.config | nindent 6 }}
+    {{- end }}
     {{- if .Values.kataManager.repository }}
     repository: {{ .Values.kataManager.repository }}
     {{- end }}
