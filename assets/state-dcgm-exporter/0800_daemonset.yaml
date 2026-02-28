@@ -52,6 +52,17 @@ spec:
         ports:
         - name: "metrics"
           containerPort: 9400
+        livenessProbe:
+          httpGet:
+            port: 9400
+            path: /health
+          initialDelaySeconds: 45
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            port: 9400
+            path: /health
+          initialDelaySeconds: 45
         volumeMounts:
         - name: "pod-gpu-resources"
           readOnly: true
